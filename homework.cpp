@@ -1,21 +1,23 @@
 //
 // Created by danil on 21.10.2025.
 //
-//программе обязетельно нужно принять на вход -t, -c и -e параметры
-//
-//параметр -t отвечает за тип связанного списка
-//1 - однонаправленный связанный список
-//2 - двунаправленный связный список
-//3 - однонаправленный кольцевой связный список
-//4 - двунаправленный кольцевой связный список
-//
-//параметр -c отвечает за изначальное количество элементов в списке
-//если список изначально не имеет элементов, параметр -c должен равняться 0
-//
-//параметр -e принимает изначальные элементы связанного списка
-//они должны указываться через запятую без пробелов
-//если список изначально не имеет элементов, параметр -e должен присутствовать, но после него ничего не должно быть
-//например: "-t 1 -c 0 -e"
+/*
+программе обязетельно нужно принять на вход параметры -t, -c и -e
+
+параметр -t отвечает за тип связанного списка
+1 - однонаправленный связанный список
+2 - двунаправленный связный список
+3 - однонаправленный кольцевой связный список
+4 - двунаправленный кольцевой связный список
+
+параметр -c отвечает за изначальное количество элементов в списке
+если список изначально не имеет элементов, параметр -c должен равняться 0
+
+параметр -e принимает изначальные элементы связанного списка
+они должны указываться через запятую без пробелов
+если список изначально не имеет элементов, параметр -e должен присутствовать, но после него ничего не должно быть
+например: "-t 1 -c 0 -e"
+*/
 
 #include <iostream>
 #include <vector>
@@ -29,8 +31,136 @@ struct Node {
     std::vector<struct Node*> links;
 };
 
-void add_elem(Node*& head, Node*& tail, const int& k, const int& type) {
-    Node* new_node = new Node{k,{nullptr}};
+void add_elem(Node*& head, Node*& tail, const int& data, const uint8_t& type);
+void print(Node*& head, const uint8_t& type);
+bool find (Node*& head, const int& data, const uint8_t& type);
+bool find_with_no_out (Node*& head, const int& data);
+bool delete_element(Node*& head, Node*& tail, int& data, uint8_t& type);
+bool delete_node(Node*& head, Node*& tail);
+void node_to_file(Node*& head, const uint8_t& type, const std::string& filename);
+bool file_to_node(Node*& head, Node*& tail, const std::string& filename, uint8_t& type);
+
+int main(int argc, char * argv[]) {
+    if (argc>7) {std::cout<<"Wrong arguments are given";return 1;}
+    if ( argv[1][0] != '-' || argv[1][1] != 't' || argv[1][2] != '\0' || argv[2][1]!='\0') {std::cout<<"Wrong arguments are given";return 1;}
+    if (argv[2][0]!='1' && argv[2][0]!='2' && argv[2][0]!='3' && argv[2][0]!='4') {std::cout<<"Wrong arguments are given";return 1;}
+    uint8_t node_type = *argv[2] - '0';
+    if ( argv[3][0] != '-' || argv[3][1] != 'c' || argv[3][2] != '\0') {std::cout<<"Wrong arguments are given";return 1;}
+    int* length = new int;
+    int* length_length= new int;
+    *length=0;
+    *length_length=0;
+    for (int i = 0; argv[4][i]!='\0'; i++) (*length_length)++;
+    for (int i = 0; argv[4][i]!='\0'; i++) *length += (argv[4][i] - '0') * pow(10, *length_length - 1 - i);
+    delete length_length;
+    if ( argv[5][0] != '-' || argv[5][1] != 'e' || argv[5][2] != '\0') {std::cout<<"Wrong arguments are given"; delete length; return 1;}
+    Node* head = nullptr;
+    Node* tail = nullptr;
+    if (argc==6 && *length!=0) {std::cout<<"The -c argument doesn't match -e argument "; delete length; return 1;}
+    else if (argc==7) {
+        char* el = argv[6];
+        std::vector<int>* elements = new std::vector<int>;
+        for (int i=0;true;i++) {
+            if (el[i]!=',') {
+                (*elements).push_back(el[i]-'0');
+                if (el[i+1]!=',') break;
+            }
+        }
+        delete el;
+        if ((*elements).size()!=*length) {std::cout<<"The -c argument doesn't match -e argument "; delete length; delete elements; return 1;}
+        for (int i=0;i<*length;i++) {
+            add_elem(head,tail,(*elements)[i], node_type);
+        }
+        delete elements;
+    }
+    delete length;
+    int n=0;
+    std::string filename;
+    std::cout<<"type a number of desired command"<<std::endl;
+    std::cout<<"1 - add element to the node"<<std::endl;
+    std::cout<<"2 - print the node"<<std::endl;
+    std::cout<<"3 - search for element in the node"<<std::endl;
+    std::cout<<"4 - delete the element"<<std::endl;
+    std::cout<<"5 - delete the node"<<std::endl;
+    std::cout<<"6 - write the node to a file"<<std::endl;
+    std::cout<<"7 - read the node from a file. File should be as follows: <data><space><type_of_node><space><data>... (e.g '3 <> 5 <> 1')"<<std::endl;
+    std::cout<<"0 - exit the program"<<std::endl;
+    do {
+        std::cout<<"command number: ";
+        std::cin >> n;
+        int data;
+        switch (n) {
+            case 1: {
+                std::cout<<"input data: ";
+                std::cin>>data;
+                add_elem(head,tail,data,node_type);
+                break;
+            }
+            case 2: {
+                print(head,node_type);
+                break;
+            }
+            case 3: {
+                std::cout<<"sought data: ";
+                std::cin>>data;
+                if (find(head,data,node_type)) std::cout<<"found"<<std::endl;
+                else std::cout<<"not found"<<std::endl;
+                break;
+            }
+            case 4: {
+                std::cout<<"data to delete: ";
+                std::cin>>data;
+                if (!find_with_no_out(head,data)) std::cout<<"data not found"<<std::endl;
+                else {
+                    short deletion_type=0;
+                    std::cout<<"1-deletes the first found element, 2-deletes every element that contains data"<<std::endl;
+                    std::cout<<"pick a type of deletion: "; std::cin>>deletion_type;
+                    if (deletion_type==1) {
+                        delete_element(head,tail,data,node_type);
+                    }
+                    else if (deletion_type==2) {
+                        while (find_with_no_out(head,data)) delete_element(head,tail,data,node_type);
+                    }
+                    else {std::cout<<"wrong command number"<<std::endl; break;};
+                    std::cout<<"data successfully deleted"<<std::endl;
+                }
+                break;
+            }
+            case 5: {
+                if (delete_node(head,tail)) std::cout<<"node successfully deleted"<<std::endl;
+                else std::cout<<"node not found"<<std::endl;
+                break;
+            }
+            case 6: {
+                std::getline(std::cin, filename);
+                std::cout<<"input filename: "; std::getline(std::cin, filename);
+                node_to_file(head,node_type,filename);
+                break;
+            }
+            case 7: {
+                if (head!=nullptr) std::cout<<"node already exists, can not read another one"<<std::endl;
+                else {
+                    std::getline(std::cin, filename);
+                    std::cout<<"input filename: "; std::getline(std::cin, filename);
+                    node_type=0;
+                    if (file_to_node(head,tail,filename,node_type)) std::cout<<"node successfully read"<<std::endl;
+                    else std::cout<<"an error occurred"<<std::endl;
+                }
+                break;
+            }
+            case 0: {
+                std::cout<<"thank you, have a nice day!"; break;
+            }
+            default: {
+                std::cout<<"wrong command number"<<std::endl;
+            }
+        }
+    }while (n!=0);
+}
+
+
+void add_elem(Node*& head, Node*& tail, const int& data, const uint8_t& type) {
+    Node* new_node = new Node{data,{nullptr}};
     if (type==2 || type==4) new_node->links.push_back(nullptr);
 
     if (head==nullptr) {
@@ -112,6 +242,7 @@ bool find (Node*& head, const int& data, const uint8_t& type) {
     std::cout << std::endl; return true;
 
 }
+
 bool find_with_no_out (Node*& head, const int& data) {
     Node* current = head;
     bool found=false;
@@ -124,8 +255,8 @@ bool find_with_no_out (Node*& head, const int& data) {
     }
     if (!found) return false;
     return true;
-
 }
+
 bool delete_element(Node*& head, Node*&tail, int& data, uint8_t& type) {
     bool result=find_with_no_out(head,data);
     if (result==false) return false;
@@ -243,8 +374,9 @@ bool delete_node(Node*&head, Node*&tail) {
 }
 
 void node_to_file(Node*& head, const uint8_t& type, const std::string& filename) {
-    if (head==nullptr) {std::cout<<"node not found"<<std::endl; return;};
+    if (head==nullptr) {std::cout<<"node not found"<<std::endl; return;}
     std::ofstream fout(filename);
+    if (!fout.is_open()) {std::cout<<"file failed to open"<<std::endl; return;}
     Node* current = head;
     while (current!=nullptr) {
         fout << current->data;
@@ -260,8 +392,10 @@ void node_to_file(Node*& head, const uint8_t& type, const std::string& filename)
     std::cout<<"node successfully transferred to file"<<std::endl;
     fout.close();
 }
+
 bool file_to_node(Node*& head, Node*&tail, const std::string &filename, uint8_t& type) {
     std::ifstream fin(filename);
+    if (!fin.is_open()) return false;
     std::string line;
     std::getline(fin,line);
     std::string data;
@@ -315,125 +449,6 @@ bool file_to_node(Node*& head, Node*&tail, const std::string &filename, uint8_t&
             else {if (head != nullptr) delete_node(head,tail); return false;}
         }
     }
+    fin.close();
     return true;
-}
-
-int main(int argc, char * argv[]) {
-    if (argc>7) {std::cout<<"Wrong arguments are given";return 1;}
-    if ( argv[1][0] != '-' || argv[1][1] != 't' || argv[1][2] != '\0' || argv[2][1]!='\0') {std::cout<<"Wrong arguments are given";return 1;}
-    if (argv[2][0]!='1' && argv[2][0]!='2' && argv[2][0]!='3' && argv[2][0]!='4') {std::cout<<"Wrong arguments are given";return 1;}
-    uint8_t node_type = *argv[2] - '0';
-    if ( argv[3][0] != '-' || argv[3][1] != 'c' || argv[3][2] != '\0') {std::cout<<"Wrong arguments are given";return 1;}
-    int* length = new int;
-    int* length_length= new int;
-    *length=0;
-    *length_length=0;
-    for (int i = 0; argv[4][i]!='\0'; i++) (*length_length)++;
-    for (int i = 0; argv[4][i]!='\0'; i++) *length += (argv[4][i] - '0') * pow(10, *length_length - 1 - i);
-    delete length_length;
-    if ( argv[5][0] != '-' || argv[5][1] != 'e' || argv[5][2] != '\0') {std::cout<<"Wrong arguments are given"; delete length; return 1;}
-    Node* head = nullptr;
-    Node* tail = nullptr;
-    if (argc==6 && *length!=0) {std::cout<<"The -c argument doesn't match -e argument "; delete length; return 1;}
-    else if (argc==7) {
-        char* el = argv[6];
-        std::vector<int>* elements = new std::vector<int>;
-        for (int i=0;true;i++) {
-            if (el[i]!=',') {
-                (*elements).push_back(el[i]-'0');
-                if (el[i+1]!=',') break;
-            }
-        }
-        delete el;
-        if ((*elements).size()!=*length) {std::cout<<"The -c argument doesn't match -e argument "; delete length; delete elements; return 1;}
-        for (int i=0;i<*length;i++) {
-            add_elem(head,tail,(*elements)[i], node_type);
-        }
-        delete elements;
-    }
-    delete length;
-    int n=0;
-    std::string filename;
-    std::cout<<"type a number of desired command"<<std::endl;
-    std::cout<<"1 - add element to the node"<<std::endl;
-    std::cout<<"2 - print the node"<<std::endl;
-    std::cout<<"3 - search for element in the node"<<std::endl;
-    std::cout<<"4 - delete the element"<<std::endl;
-    std::cout<<"5 - delete the node"<<std::endl;
-    std::cout<<"6 - write the node to a file"<<std::endl;
-    std::cout<<"7 - read the node from a file. File should be as follows: <data><space><type_of_node><space><data>... (e.g '3 <> 5 <> 1')"<<std::endl;
-    std::cout<<"0 - exit the program"<<std::endl;
-    do {
-        std::cout<<"command number: ";
-        std::cin >> n;
-        switch (n) {
-            case 1: {
-                int k = 0;
-                std::cout<<"input data: ";
-                std::cin>>k;
-                add_elem(head,tail,k,node_type);
-                break;
-            }
-            case 2: {
-                print(head,node_type);
-                break;
-            }
-            case 3: {
-                int f = 0;
-                std::cout<<"sought data: ";
-                std::cin>>f;
-                if (find(head,f,node_type)) std::cout<<"found"<<std::endl;
-                else std::cout<<"not found"<<std::endl;
-                break;
-            }
-            case 4: {
-                int d = 0;
-                std::cout<<"data to delete: ";
-                std::cin>>d;
-                if (!find_with_no_out(head,d)) std::cout<<"data not found"<<std::endl;
-                else {
-                    short deletion_type=0;
-                    std::cout<<"1-deletes the first found element, 2-deletes every element that contains data"<<std::endl;
-                    std::cout<<"pick a type of deletion: "; std::cin>>deletion_type;
-                    if (deletion_type==1) {
-                        delete_element(head,tail,d,node_type);
-                    }
-                    else if (deletion_type==2) {
-                        while (find_with_no_out(head,d)) delete_element(head,tail,d,node_type);
-                    }
-                    else {std::cout<<"wrong command number"<<std::endl; break;};
-                    std::cout<<"data successfully deleted"<<std::endl;
-                }
-                break;
-            }
-            case 5: {
-                if (delete_node(head,tail)) std::cout<<"node successfully deleted"<<std::endl;
-                else std::cout<<"node not found"<<std::endl;
-                break;
-            }
-            case 6: {
-                std::getline(std::cin, filename);
-                std::cout<<"input filename: "; std::getline(std::cin, filename);
-                node_to_file(head,node_type,filename);
-                break;
-            }
-            case 7: {
-                if (head!=nullptr) std::cout<<"node already exists, can not read another one"<<std::endl;
-                else {
-                    std::getline(std::cin, filename);
-                    std::cout<<"input filename: "; std::getline(std::cin, filename);
-                    node_type=0;
-                    if (file_to_node(head,tail,filename,node_type)) std::cout<<"node successfully read"<<std::endl;
-                    else std::cout<<"an error occurred"<<std::endl;
-                }
-                break;
-            }
-            case 0: {
-                std::cout<<"thank you, have a nice day!"; break;
-            }
-            default: {
-                std::cout<<"wrong command number"<<std::endl;
-            }
-        }
-    }while (n!=0);
 }
